@@ -47,6 +47,7 @@ print_ubuntu_ver() {
 
 	cat >> $1 <<-EOI
 	FROM ubuntu:${os_version}
+	ENV LANG C.UTF-8
 
 	EOI
 }
@@ -55,6 +56,7 @@ print_ubuntu_ver() {
 print_alpine_ver() {
 	cat >> $1 <<-EOI
 	FROM alpine:3.8
+	ENV LANG C.UTF-8
 
 	EOI
 }
@@ -90,7 +92,9 @@ RUN apk --update add --no-cache --virtual .build-deps curl binutils \
     && ZLIB_SHA256=bb0959c08c1735de27abf01440a6f8a17c5c51e61c3b4c707e988c906d3b7f67 \
     && curl -Ls https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub -o /etc/apk/keys/sgerrand.rsa.pub \
     && curl -Ls ${ALPINE_GLIBC_REPO}/${GLIBC_VER}/glibc-${GLIBC_VER}.apk > /tmp/${GLIBC_VER}.apk \
-    && apk add /tmp/${GLIBC_VER}.apk \
+    && curl -Ls ${ALPINE_GLIBC_REPO}/${GLIBC_VER}/glibc-bin-${GLIBC_VER}.apk > /tmp/${GLIBC_VER}-bin.apk \
+    && curl -Ls ${ALPINE_GLIBC_REPO}/${GLIBC_VER}/glibc-i18n-${GLIBC_VER}.apk > /tmp/${GLIBC_VER}-i18n.apk \
+    && apk add /tmp/${GLIBC_VER}.apk /tmp/${GLIBC_VER}-bin.apk /tmp/${GLIBC_VER}-i18n.apk \
     && curl -Ls ${GCC_LIBS_URL} -o /tmp/gcc-libs.tar.xz \
     && echo "${GCC_LIBS_SHA256}  /tmp/gcc-libs.tar.xz" | sha256sum -c - \
     && mkdir /tmp/gcc \
@@ -102,8 +106,11 @@ RUN apk --update add --no-cache --virtual .build-deps curl binutils \
     && mkdir /tmp/libz \
     && tar -xf /tmp/libz.tar.xz -C /tmp/libz \
     && mv /tmp/libz/usr/lib/libz.so* /usr/glibc-compat/lib \
-    && apk del --purge .build-deps \
-    && rm -rf /tmp/${GLIBC_VER}.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/*
+    && apk del binutils .build-deps \
+    && rm -rf /tmp/${GLIBC_VER}.apk /tmp/${GLIBC_VER}-bin.apk /tmp/${GLIBC_VER}-i18n.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/* \
+    && /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 C.UTF-8 || true \
+    && echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh \
+    && apk del glibc-i18n
 EOI
 }
 
